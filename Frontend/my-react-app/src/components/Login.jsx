@@ -19,7 +19,7 @@ const Login = () =>{
             }
         );
         localStorage.setItem('token',response.data.token);
-        navigate('/')
+        navigate('/Dashboard')
         }catch(err){
             const errorMessage = err.response?.data?.error;
             console.log(errorMessage);
