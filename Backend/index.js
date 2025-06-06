@@ -104,9 +104,9 @@ app.post('/groups', verifyToken, async (req, res) => {
     const group = result.rows[0];
 
     await pool.query(
-      `INSERT INTO group_members (group_id, user_id, role)
-       VALUES ($1, $2, 'admin')`,
-      [group.id, userId]
+        `INSERT INTO group_members (group_id, user_id, role, status)
+        VALUES ($1, $2, 'admin', 'active')`,
+        [group.id, userId]
     );
 
     res.status(201).json({ message: 'Group created successfully', group });
@@ -136,7 +136,7 @@ app.get('/groups/:id', verifyToken, async (req, res) => {
     const group = groupResult.rows[0];
 
     const membersResult = await pool.query(
-      `SELECT u.id, u.username, gm.role
+      `SELECT u.id, u.username, gm.role, gm.status
        FROM group_members gm
        JOIN users u ON u.id = gm.user_id
        WHERE gm.group_id = $1`,
@@ -146,12 +146,12 @@ app.get('/groups/:id', verifyToken, async (req, res) => {
     group.members = membersResult.rows;
 
     res.json(group);
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch group details.' });
   }
 });
+
 
 app.get('/groups', verifyToken, async (req, res) => {
   try {
@@ -160,6 +160,76 @@ app.get('/groups', verifyToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch groups.' });
+  }
+});
+
+app.post('/groups/:id/request', verifyToken, async (req, res) => {
+  const groupId = req.params.id;
+  const userId = req.user.userId;
+
+  try {
+    // Verificăm dacă există deja o cerere sau e membru
+    const exists = await pool.query(
+      'SELECT * FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, userId]
+    );
+
+    if (exists.rows.length > 0) {
+      return res.status(400).json({ error: 'You already requested or are a member.' });
+    }
+
+    await pool.query(
+      'INSERT INTO group_members (group_id, user_id, role, status) VALUES ($1, $2, $3, $4)',
+      [groupId, userId, 'member', 'pending']
+    );
+
+    res.json({ message: 'Request to join sent.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to send request.' });
+  }
+});
+
+app.patch('/groups/:id/approve/:userId', verifyToken, async (req, res) => {
+  const groupId = req.params.id;
+  const targetUserId = req.params.userId;
+  const adminId = req.user.userId;
+
+  try {
+    // Verificăm dacă solicitantul este admin
+    const adminCheck = await pool.query(
+      'SELECT * FROM group_members WHERE group_id = $1 AND user_id = $2 AND role = $3 AND status = $4',
+      [groupId, adminId, 'admin', 'active']
+    );
+
+    if (adminCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Only group admins can approve requests.' });
+    }
+
+    await pool.query(
+      `UPDATE group_members SET status = 'active'
+       WHERE group_id = $1 AND user_id = $2 AND status = 'pending'`,
+      [groupId, targetUserId]
+    );
+
+    res.json({ message: 'User approved.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to approve user.' });
+  }
+});
+
+app.get('/user/groups', verifyToken, async (req, res) => {
+  const userId = req.user.userId;
+  try {
+    const result = await pool.query(
+      `SELECT group_id, role, status FROM group_members WHERE user_id = $1`,
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not fetch memberships.' });
   }
 });
 

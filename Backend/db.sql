@@ -17,3 +17,14 @@ CREATE TABLE group_members (
   role VARCHAR(20) CHECK (role IN ('admin', 'member')) NOT NULL,
   PRIMARY KEY (group_id, user_id)
 );
+
+ALTER TABLE group_members ADD COLUMN status VARCHAR(20) DEFAULT 'pending' 
+  CHECK (status IN ('pending', 'active'));
+
+CREATE TABLE messages (
+  id SERIAL PRIMARY KEY,
+  group_id INTEGER REFERENCES project_groups(id),
+  user_id INTEGER REFERENCES users(id),
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
