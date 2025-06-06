@@ -12,6 +12,9 @@ const Group = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
+  const [isMember, setIsMember] = useState(false);
 
   const token = localStorage.getItem('token');
   const decoded = jwtDecode(token);
@@ -28,33 +31,52 @@ const Group = () => {
     console.error('Failed to load messages:', err);
   }
 };
+const fetchFiles = async () => {
+  try {
+    const res = await axios.get(`http://localhost:3000/groups/${id}/files`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setFiles(res.data);
+  } catch (err) {
+    console.error('Could not fetch files:', err);
+  }
+};
 
 
     const fetchGroup = async () => {
-      try {
-        const res = await axios.get(`http://localhost:3000/groups/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+  try {
+    const res = await axios.get(`http://localhost:3000/groups/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-        setGroup(res.data);
+    setGroup(res.data);
 
-        const member = res.data.members.find(
-          m => m.id === currentUserId && m.role === 'admin' && m.status === 'active'
-        );
-        setIsAdmin(!!member);
+    const members = res.data.members;
 
-        const pendingMembers = res.data.members.filter(m => m.status === 'pending');
-        setPending(pendingMembers);
-      } catch (err) {
-        console.error(err);
-        setError('Could not fetch group details.');
-      }
-    };
+    const isAdminUser = members.find(
+      m => m.id === currentUserId && m.role === 'admin' && m.status === 'active'
+    );
+    setIsAdmin(!!isAdminUser);
+
+    const isUserMember = members.some(
+      m => m.id === currentUserId && m.status === 'active'
+    );
+    setIsMember(isUserMember);
+
+    const pendingMembers = members.filter(m => m.status === 'pending');
+    setPending(pendingMembers);
+
+  } catch (err) {
+    console.error(err);
+    setError('Could not fetch group details.');
+  }
+};
 
   useEffect(() => {
 
     fetchGroup();
     fetchMessages();
+    fetchFiles();
   }, [id, token, currentUserId]);
 
   const handleApprove = async (userId) => {
@@ -95,6 +117,27 @@ const Group = () => {
   }
 };
 
+const handleUploadFile = async (e) => {
+  e.preventDefault();
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    await axios.post(`http://localhost:3000/groups/${id}/files`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    setFile(null);
+    fetchFiles(); // reîncarcă fișierele
+  } catch (err) {
+    console.error('Failed to upload file:', err);
+  }
+};
+
   return (
     <div className="group-page">
       <div className="group-header">
@@ -105,12 +148,12 @@ const Group = () => {
       <div className="group-body">
         <div className="group-main-content">
           <div className="group-chat">
-  <div className="messages">
-    {messages.map((msg) => (
-      <div key={msg.id} className="message">
-        <strong>{msg.username}:</strong> {msg.content}
-        <div className="timestamp">{new Date(msg.created_at).toLocaleString()}</div>
-      </div>
+            <div className="messages">
+                {messages.map((msg) => (
+                <div key={msg.id} className="message">
+                <strong>{msg.username}:</strong> {msg.content}
+                <div className="timestamp">{new Date(msg.created_at).toLocaleString()}</div>
+            </div>
     ))}
   </div>
 
@@ -125,6 +168,29 @@ const Group = () => {
   </form>
 </div>
         </div>
+        
+        <div className="group-files">
+            <h3>Shared Files</h3>
+
+                {isMember && (
+                    <form onSubmit={handleUploadFile} className="upload-form">
+                    <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+                    <button type="submit">Upload</button>
+                    </form>
+                )}
+
+        <ul className="file-list">
+            {files.map((f) => (
+            <li key={f.id}>
+                <a href={`http://localhost:3000/uploads/${f.filename}`} target="_blank" rel="noreferrer">
+                {f.original_name}
+                </a>{' '}
+             <span className="uploaded-by">by {f.username}</span>
+            </li>
+         ))}
+        </ul>
+        </div>
+
 
         <div className="group-members">
           <h3>Admins</h3>

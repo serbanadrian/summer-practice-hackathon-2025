@@ -126,3 +126,77 @@
 .chat-form button:hover {
   background-color: #45a049;
 }
+
+.group-files {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #f9f9f9;
+  border-radius: 12px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+}
+
+.group-files h3 {
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.upload-form {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.upload-form input[type="file"] {
+  flex-grow: 1;
+  padding: 6px;
+  font-size: 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.upload-form button {
+  padding: 0.5rem 1rem;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.upload-form button:hover {
+  background-color: #45a049;
+}
+
+.file-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 1rem;
+}
+
+.file-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.file-list a {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.file-list a:hover {
+  text-decoration: underline;
+}
+
+.uploaded-by {
+  font-size: 0.85rem;
+  color: #666;
+  margin-left: 1rem;
+}
