@@ -10,10 +10,25 @@ const Group = () => {
   const [error, setError] = useState('');
   const [pending, setPending] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
 
   const token = localStorage.getItem('token');
   const decoded = jwtDecode(token);
   const currentUserId = decoded.userId;
+
+    
+  const fetchMessages = async () => {
+  try {
+    const res = await axios.get(`http://localhost:3000/groups/${id}/messages`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setMessages(res.data);
+  } catch (err) {
+    console.error('Failed to load messages:', err);
+  }
+};
+
 
     const fetchGroup = async () => {
       try {
@@ -39,6 +54,7 @@ const Group = () => {
   useEffect(() => {
 
     fetchGroup();
+    fetchMessages();
   }, [id, token, currentUserId]);
 
   const handleApprove = async (userId) => {
@@ -62,6 +78,23 @@ const Group = () => {
   const admins = group.members.filter(m => m.role === 'admin' && m.status === 'active');
   const members = group.members.filter(m => m.role === 'member' && m.status === 'active');
 
+ const handleSendMessage = async (e) => {
+  e.preventDefault();
+  if (!newMessage.trim()) return;
+
+  try {
+    await axios.post(
+      `http://localhost:3000/groups/${id}/messages`,
+      { content: newMessage },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    setNewMessage('');
+    fetchMessages();
+  } catch (err) {
+    console.error('Failed to send message:', err);
+  }
+};
+
   return (
     <div className="group-page">
       <div className="group-header">
@@ -71,7 +104,26 @@ const Group = () => {
 
       <div className="group-body">
         <div className="group-main-content">
-          <p>This space is reserved for future content like project lists, discussions, etc.</p>
+          <div className="group-chat">
+  <div className="messages">
+    {messages.map((msg) => (
+      <div key={msg.id} className="message">
+        <strong>{msg.username}:</strong> {msg.content}
+        <div className="timestamp">{new Date(msg.created_at).toLocaleString()}</div>
+      </div>
+    ))}
+  </div>
+
+  <form onSubmit={handleSendMessage} className="chat-form">
+    <input
+      type="text"
+      value={newMessage}
+      onChange={(e) => setNewMessage(e.target.value)}
+      placeholder="Type a message..."
+    />
+    <button type="submit">Send</button>
+  </form>
+</div>
         </div>
 
         <div className="group-members">
