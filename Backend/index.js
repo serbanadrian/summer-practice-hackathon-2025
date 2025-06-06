@@ -149,12 +149,12 @@ app.get('/groups/:id', verifyToken, async (req, res) => {
     const group = groupResult.rows[0];
 
     const membersResult = await pool.query(
-      `SELECT u.id, u.username, gm.role, gm.status
-       FROM group_members gm
-       JOIN users u ON u.id = gm.user_id
-       WHERE gm.group_id = $1`,
-      [groupId]
-    );
+  `SELECT u.id, u.username, gm.role, gm.status, gm.github_url
+   FROM group_members gm
+   JOIN users u ON u.id = gm.user_id
+   WHERE gm.group_id = $1`,
+  [groupId]
+);
 
     group.members = membersResult.rows;
 
@@ -329,6 +329,26 @@ app.get('/groups/:id/files', verifyToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch files' });
+  }
+});
+
+app.patch('/groups/:id/github', verifyToken, async (req, res) => {
+  const groupId = req.params.id;
+  const userId = req.user.userId;
+  const { githubUrl } = req.body;
+
+  try {
+    await pool.query(
+      `UPDATE group_members
+       SET github_url = $1
+       WHERE group_id = $2 AND user_id = $3`,
+      [githubUrl, groupId, userId]
+    );
+
+    res.json({ message: 'GitHub URL updated.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update GitHub URL.' });
   }
 });
 
