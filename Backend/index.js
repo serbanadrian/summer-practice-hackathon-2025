@@ -21,8 +21,19 @@ const pool = new pg.Pool({
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static('uploads'));
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + '-' + file.originalname;
+    cb(null, uniqueName);
+  }
+});
 
+const upload = multer({ storage });
 
 app.post('/login', async (req, res) => {
     const { userName, password } = req.body;
@@ -279,7 +290,47 @@ app.post('/groups/:id/messages', verifyToken, async (req, res) => {
   }
 });
 
+app.post('/groups/:id/files', verifyToken, upload.single('file'), async (req, res) => {
+  const groupId = req.params.id;
+  const userId = req.user.userId;
 
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO group_files (group_id, user_id, filename, original_name)
+       VALUES ($1, $2, $3, $4)`,
+      [groupId, userId, req.file.filename, req.file.originalname]
+    );
+
+    res.status(201).json({ message: 'File uploaded successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to save file metadata' });
+  }
+});
+
+app.get('/groups/:id/files', verifyToken, async (req, res) => {
+  const groupId = req.params.id;
+
+  try {
+    const result = await pool.query(
+      `SELECT f.id, f.original_name, f.filename, f.uploaded_at, u.username
+       FROM group_files f
+       JOIN users u ON u.id = f.user_id
+       WHERE f.group_id = $1
+       ORDER BY f.uploaded_at DESC`,
+      [groupId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch files' });
+  }
+});
 
 const PORT = process.env.PORT;
 app.listen(PORT, () =>{
