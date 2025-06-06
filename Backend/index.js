@@ -85,6 +85,85 @@ app.post('/register', async (req, res) => {
     }
 });
 
+app.post('/groups', verifyToken, async (req, res) => {
+  const { name, description } = req.body;
+  const userId = req.user.userId;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Group name is required.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO project_groups (name, description, created_by)
+       VALUES ($1, $2, $3)
+       RETURNING id, name, description`,
+      [name, description || null, userId]
+    );
+
+    const group = result.rows[0];
+
+    await pool.query(
+      `INSERT INTO group_members (group_id, user_id, role)
+       VALUES ($1, $2, 'admin')`,
+      [group.id, userId]
+    );
+
+    res.status(201).json({ message: 'Group created successfully', group });
+  } catch (err) {
+    console.error(err);
+    if (err.code === '23505') {
+      res.status(409).json({ error: 'A group with this name already exists.' });
+    } else {
+      res.status(500).json({ error: 'Failed to create group.' });
+    }
+  }
+});
+
+app.get('/groups/:id', verifyToken, async (req, res) => {
+  const groupId = req.params.id;
+
+  try {
+    const groupResult = await pool.query(
+      'SELECT id, name, description FROM project_groups WHERE id = $1',
+      [groupId]
+    );
+
+    if (groupResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Group not found.' });
+    }
+
+    const group = groupResult.rows[0];
+
+    const membersResult = await pool.query(
+      `SELECT u.id, u.username, gm.role
+       FROM group_members gm
+       JOIN users u ON u.id = gm.user_id
+       WHERE gm.group_id = $1`,
+      [groupId]
+    );
+
+    group.members = membersResult.rows;
+
+    res.json(group);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch group details.' });
+  }
+});
+
+app.get('/groups', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, name FROM project_groups ORDER BY name ASC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch groups.' });
+  }
+});
+
+
 const PORT = process.env.PORT;
 app.listen(PORT, () =>{
     console.log(`Server running on http://localhost:${PORT}`);
