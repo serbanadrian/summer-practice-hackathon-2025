@@ -22,6 +22,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+
+
 app.post('/login', async (req, res) => {
     const { userName, password } = req.body;
 
@@ -232,6 +234,51 @@ app.get('/user/groups', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'Could not fetch memberships.' });
   }
 });
+
+app.get('/groups/:id/messages', verifyToken, async (req, res) => {
+  const groupId = req.params.id;
+
+  try {
+    const result = await pool.query(
+      `SELECT m.id, m.content, m.created_at, u.username
+       FROM messages m
+       JOIN users u ON m.user_id = u.id
+       WHERE m.group_id = $1
+       ORDER BY m.created_at ASC`,
+      [groupId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch messages.' });
+  }
+});
+
+app.post('/groups/:id/messages', verifyToken, async (req, res) => {
+  const groupId = req.params.id;
+  const userId = req.user.userId;
+  const { content } = req.body;
+
+  if (!content) {
+    return res.status(400).json({ error: 'Message content is required.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO messages (group_id, user_id, content)
+       VALUES ($1, $2, $3)
+       RETURNING id, content, created_at`,
+      [groupId, userId, content]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to send message.' });
+  }
+});
+
 
 
 const PORT = process.env.PORT;
