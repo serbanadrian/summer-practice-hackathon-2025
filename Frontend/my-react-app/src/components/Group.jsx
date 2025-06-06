@@ -15,6 +15,8 @@ const Group = () => {
   const [file, setFile] = useState(null);
   const [files, setFiles] = useState([]);
   const [isMember, setIsMember] = useState(false);
+  const [githubUrl, setGithubUrl] = useState('');
+  const [currentGithub, setCurrentGithub] = useState('');
 
   const token = localStorage.getItem('token');
   const decoded = jwtDecode(token);
@@ -49,21 +51,26 @@ const fetchFiles = async () => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    setGroup(res.data);
+    const groupData = res.data;
+    setGroup(groupData); // setezi aici
 
-    const members = res.data.members;
+    const currentMember = groupData.members.find(m => m.id === currentUserId);
+    if (currentMember && currentMember.github_url) {
+      setCurrentGithub(currentMember.github_url);
+      setGithubUrl(currentMember.github_url);
+    }
 
-    const isAdminUser = members.find(
+    const isAdminUser = groupData.members.find(
       m => m.id === currentUserId && m.role === 'admin' && m.status === 'active'
     );
     setIsAdmin(!!isAdminUser);
 
-    const isUserMember = members.some(
+    const isUserMember = groupData.members.some(
       m => m.id === currentUserId && m.status === 'active'
     );
     setIsMember(isUserMember);
 
-    const pendingMembers = members.filter(m => m.status === 'pending');
+    const pendingMembers = groupData.members.filter(m => m.status === 'pending');
     setPending(pendingMembers);
 
   } catch (err) {
@@ -135,6 +142,23 @@ const handleUploadFile = async (e) => {
     fetchFiles(); // reîncarcă fișierele
   } catch (err) {
     console.error('Failed to upload file:', err);
+  }
+};
+
+const handleGithubSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await axios.patch(
+      `http://localhost:3000/groups/${id}/github`,
+      { githubUrl },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    setCurrentGithub(githubUrl);
+    alert('GitHub URL saved!');
+    fetchGroup();
+  } catch (err) {
+    console.error(err);
+    alert('Failed to update GitHub URL.');
   }
 };
 
@@ -226,6 +250,44 @@ const handleUploadFile = async (e) => {
           )}
         </div>
       </div>
+      {isMember && (
+  <div className="github-link-section">
+    <h3>Your GitHub Repository</h3>
+    <form onSubmit={handleGithubSubmit}>
+      <input
+        type="url"
+        value={githubUrl}
+        onChange={(e) => setGithubUrl(e.target.value)}
+        placeholder="https://github.com/username/repo"
+        required
+      />
+      <button type="submit">Save</button>
+    </form>
+    {currentGithub && (
+      <p>
+        Your added: <a href={currentGithub} target="_blank" rel="noreferrer">{currentGithub}</a>
+      </p>
+    )}
+  </div>
+)}
+
+{isMember && (
+  <div className="group-github-links">
+    <h3>Group Members' GitHub Repositories</h3>
+    <ul>
+      {group.members
+        .filter(member => member.github_url)
+        .map(member => (
+          <li key={member.id}>
+            <strong>{member.username}:</strong>{' '}
+            <a href={member.github_url} target="_blank" rel="noreferrer">
+              {member.github_url}
+            </a>
+          </li>
+        ))}
+    </ul>
+  </div>
+)}
     </div>
   );
 };

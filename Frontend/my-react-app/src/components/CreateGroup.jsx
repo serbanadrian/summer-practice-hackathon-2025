@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const CreateGroup = () => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [message, setMessage] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,6 +33,7 @@ const CreateGroup = () => {
       setMessage(`Group "${res.data.group.name}" created successfully!`);
       setName('');
       setDescription('');
+      navigate('/Dashboard')
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to create group.';
       setMessage(errorMsg);
